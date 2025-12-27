@@ -1,78 +1,66 @@
-# GDrive VideoLoader
+# Google Drive Video Downloader
 
-**GDrive VideoLoader** is a Python-based tool to download videos from Google Drive effortlessly, **including those marked as _view-only_** (no download option). It supports resumable downloads, progress bars, and various customization options for video fetching and downloading.
+This project provides tools to download videos from Google Drive. It supports downloading individual videos by ID or scanning a folder (including subfolders and shortcuts) to download all videos while preserving the directory structure.
 
-## Features
+## Prerequisites
 
-- Download videos even if marked as *view-only* (without a download button)
-- Supports resumable downloads (continue from where it stopped)
-- Displays a progress bar for ongoing downloads
-- Allows custom chunk sizes for downloading
-- Optionally specify a custom output file name
-- Verbose mode for detailed logs during execution
-
-## Installation
-
-### Prerequisites
-
-- Python 3.7+
-- Pip (Python package manager)
-
-### Dependencies
-
-Install the required Python packages using the following command:
-
-```bash
-pip install -r requirements.txt
-```
+1.  **Python 3.6+**
+2.  **Google Cloud Project & Credentials:**
+    *   Enable the **Google Drive API**.
+    *   Download the OAuth 2.0 Client ID JSON file and save it as `credentials.json` in the project directory.
+    *   Reference: [Google Drive API Python Quickstart](https://ai.google.dev/palm_docs/oauth_quickstart?hl=ko)
+3.  **Dependencies:**
+    Install the required Python packages using `requirements.txt`:
+    ```bash
+    pip install -r requirements.txt
+    ```
+    Or install them manually:
+    ```bash
+    pip install google-api-python-client google-auth-oauthlib requests tqdm
+    ```
 
 ## Usage
 
-### Basic Command
+### 1. Download a Single Video
 
-To download a video by its Google Drive ID:
+Use `gdrive_videoloader.py` to download a specific video using its File ID.
 
 ```bash
-python gdrive_videoloader.py <video_id>
+python gdrive_videoloader.py <VIDEO_ID> [options]
 ```
 
-### Options
+**Options:**
+*   `video_id`: The ID of the video file on Google Drive.
+*   `-o`, `--output`: (Optional) Output filename. Defaults to the video title from Drive.
+*   `-c`, `--chunk_size`: (Optional) Download chunk size in bytes. Default is 1024.
+*   `-v`, `--verbose`: Enable verbose logging.
 
-| Parameter                | Description                                                       | Default Value         |
-|--------------------------|-------------------------------------------------------------------|-----------------------|
-| `<video_id>`             | The video ID from Google Drive (required).                       | N/A                   |
-| `-o`, `--output`         | Custom output file name for the downloaded video.                | Video name in GDrive  |
-| `-c`, `--chunk_size`     | Chunk size (in bytes) for downloading the video.                 | 1024 bytes            |
-| `-v`, `--verbose`        | Enable verbose mode for detailed logs.                           | Disabled              |
-| `--version`              | Display the script version.                                      | N/A                   |
-| `-h`, `--help`           | Display the help message.                                        | N/A                   |
+**Example:**
+```bash
+python gdrive_videoloader.py 1abc-xyz123 -o my_video.mp4 -v
+```
 
-## TODO
+### 2. Download All Videos from a Folder
 
-### Features
-- Add support for downloading subtitles.
-- Add support for multiple downloads (list or file of video IDs).
-- Allow selection of video quality.
-- Implement temporary file naming during download.
+Use `gdrive_video_download.py` to recursively scan a Google Drive folder and download all videos.
 
-### UX
-- Safely handle interruptions (KeyboardInterrupt).
-- Display custom error messages based on request responses.
+*   Scans subfolders and shortcuts.
+*   Preserves the folder structure locally.
+*   Skips non-video files.
 
-### Performance
-- Implement parallel downloads to speed up the process.
+```bash
+python gdrive_video_download.py <FOLDER_ID> [options]
+```
 
-### Organization
-- Modularize the project into separate files (`downloader.py`, `cli.py`, `utils.py`).
-- Add logging support using the `logging` module.
-- Validate output file names for compatibility with the operating system.
+**Options:**
+*   `folder_id`: The ID of the Google Drive folder to scan.
+*   `-v`, `--verbose`: Enable debug logging to see the scanning process.
 
-### Code Quality
-- Create automated tests for core functions.
-- Add detailed documentation using `pdoc` or `Sphinx`.
+**Example:**
+```bash
+python gdrive_video_download.py 1HFkHQYetpcNnyQoqvTxX1I1TAcF6Q0us -v
+```
 
-## Contributing
-Contributions are always welcome! If you have suggestions for improving the script or adding new features, feel free to fork the repository and submit a pull request.
+## Authentication
 
-## License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+On the first run, a browser window will open to authenticate with your Google account. A `token.pickle` file will be created to store your access token for future runs.

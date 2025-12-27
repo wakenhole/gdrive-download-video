@@ -23,11 +23,13 @@ This project provides tools to download videos from Google Drive. It supports do
 
 ### 1. Download a Single Video
 
-Use `gdrive_videoloader.py` to download a specific video using its File ID.
+Use `gdrive_videoloader.py` to download a specific video using its Video ID. 
 
 ```bash
 python gdrive_videoloader.py <VIDEO_ID> [options]
 ```
+> VIDEO_ID: https://drive.google.com/file/d/<VIDEO_ID>/view?t=3
+> Open video in new window or tab
 
 **Options:**
 *   `video_id`: The ID of the video file on Google Drive.
@@ -37,7 +39,7 @@ python gdrive_videoloader.py <VIDEO_ID> [options]
 
 **Example:**
 ```bash
-python gdrive_videoloader.py 1abc-xyz123 -o my_video.mp4 -v
+python gdrive_videoloader.py 1HFkHQYetpcNnyQoxxxxxX1I1TAcF6Q0us -o my_video.mp4 -v
 ```
 
 ### 2. Download All Videos from a Folder
@@ -53,13 +55,14 @@ python gdrive_video_download.py <FOLDER_ID> [options]
 ```
 
 **Options:**
-*   `folder_id`: The ID of the Google Drive folder to scan.
+*   `folder_id`: The ID of the Google Drive folder to scan. ()
 *   `-v`, `--verbose`: Enable debug logging to see the scanning process.
 
 **Example:**
 ```bash
-python gdrive_video_download.py 1HFkHQYetpcNnyQoqvTxX1I1TAcF6Q0us -v
+python gdrive_video_download.py 1HFkHQYetpcNnyQoxxxxxX1I1TAcF6Q0us -v
 ```
+> FOLDER_ID: https://drive.google.com/drive/folders/<FOLDER_ID>
 
 ## Authentication
 

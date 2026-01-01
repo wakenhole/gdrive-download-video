@@ -6,7 +6,7 @@ Recursively scan a Google Drive folder (including subfolders and shortcuts) and 
 
 - Recursively scans folders and shortcuts; works with shared drives.
 - Recreates the Drive folder tree locally under the Drive folder name.
-- Downloads only video files (uses `gdrive_single_video_downloader.py` for reliable downloading). Non-video files are currently skipped; default scan includes PDFs, but `--videos-only` can restrict scanning to videos.
+- Downloads videos with `gdrive_single_video_downloader.py`; other files (e.g., PDFs) are fetched via the Drive API. By default, videos and PDFs are downloaded; `--videos-only` restricts to videos.
 - Skips files that already exist at the target path.
 - Verbose mode to see Drive queries and traversal details.
 
@@ -21,13 +21,13 @@ pip install -r requirements.txt
 
 ## Usage
 
-### Download videos from a folder (current behavior)
+### Download files from a folder (default: videos + PDFs)
 ```bash
 python gdrive_download.py <FOLDER_ID> [--videos-only] [-v]
 ```
 - `FOLDER_ID` is the last segment of the Drive folder URL (https://drive.google.com/drive/folders/<FOLDER_ID>).
 - `-v` shows detailed traversal logs.
-- `--videos-only` (or `--videos_only`): Restrict scanning to video files only (default scan includes videos + PDFs; downloads are always videos).
+- `--videos-only` (or `--videos_only`): Restrict scanning/downloading to video files only (default downloads videos and PDFs).
 
 The script will create a local directory named after the Drive folder and mirror its subfolders, downloading videos into their respective paths. Non-video files (e.g., PDFs) are detected but skipped.
 

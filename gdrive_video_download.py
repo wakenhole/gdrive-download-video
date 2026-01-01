@@ -5,14 +5,27 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 import pickle
 import os
-import gdrive_videoloader
 import argparse
+from tqdm import tqdm
 
 # If modifying these scopes, delete the file token.pickle.
 SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
 
-def get_video_ids_in_folder(folder_id, verbose=False):
-    """Lists all video IDs in a specified Google Drive folder and its subfolders."""
+class bcolors:
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+
+def get_folder_name(service, folder_id):
+    """Gets the name of a Google Drive folder."""
+    try:
+        file = service.files().get(fileId=folder_id, fields='name', supportsAllDrives=True).execute()
+        return file.get('name')
+    except Exception as e:
+        print(f"An error occurred while fetching folder name: {e}")
+        return None
+
+def get_file_ids_in_folder(folder_id, verbose=False, videos_only=False):
+    """Lists all video and PDF IDs in a specified Google Drive folder and its subfolders."""
     creds = None
     # The file token.pickle stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first time.
@@ -33,7 +46,7 @@ def get_video_ids_in_folder(folder_id, verbose=False):
 
     service = build('drive', 'v3', credentials=creds)
 
-    video_ids = []
+    file_ids = []
     folders_stack = [(folder_id, "")]
 
     while folders_stack:
@@ -42,8 +55,12 @@ def get_video_ids_in_folder(folder_id, verbose=False):
             print(f"[DEBUG] Processing folder: {current_folder_id}")
         page_token = None
 
-        # Query to search for files within the specific folder, with video MIME types or folders
-        query = f"'{current_folder_id}' in parents and (mimeType contains 'video' or mimeType = 'application/vnd.google-apps.folder' or mimeType = 'application/vnd.google-apps.shortcut') and trashed=false"
+        # Query to search for files within the specific folder
+        file_types_query = "mimeType contains 'video'"
+        if not videos_only:
+            file_types_query += " or mimeType = 'application/pdf'"
+
+        query = f"'{current_folder_id}' in parents and ({file_types_query} or mimeType = 'application/vnd.google-apps.folder' or mimeType = 'application/vnd.google-apps.shortcut') and trashed=false"
         if verbose:
             print(f"[DEBUG] Query: {query}")
 
@@ -78,34 +95,111 @@ def get_video_ids_in_folder(folder_id, verbose=False):
                                 print(f"[DEBUG] -> Found shortcut to folder. Adding target to stack: {file.get('name')} ({target_id})")
                             new_path = os.path.join(current_path, file.get('name'))
                             folders_stack.append((target_id, new_path))
-                        elif target_mime_type and 'video' in target_mime_type:
-                            print(f"Found shortcut to video: {file.get('name')} ({target_id})")
-                            video_ids.append({'id': target_id, 'name': file.get('name'), 'path': current_path})
+                        elif target_mime_type and ('video' in target_mime_type or 'pdf' in target_mime_type):
+                            print(f"Found shortcut to file: {file.get('name')} ({target_id})")
+                            file_ids.append({'id': target_id, 'name': file.get('name'), 'path': current_path})
                 else:
-                    print(f"Found video: {file.get('name')} ({file.get('id')})")
-                    video_ids.append({'id': file.get('id'), 'name': file.get('name'), 'path': current_path})
+                    print(f"Found file: {file.get('name')} ({file.get('id')})")
+                    file_ids.append({'id': file.get('id'), 'name': file.get('name'), 'path': current_path})
 
             page_token = response.get('nextPageToken', None)
             if page_token is None:
                 break
 
-    return video_ids
+    return file_ids
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Download videos from a Google Drive folder.")
-    parser.add_argument("folder_id", type=str, help="The Google Drive folder ID to scan for videos.")
+    parser = argparse.ArgumentParser(description="Download files from a Google Drive folder.")
+    parser.add_argument("folder_id", type=str, help="The Google Drive folder ID to scan for files.")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable debug logging.")
+    parser.add_argument("--videos-only", action="store_true", help="Download only video files.")
     args = parser.parse_args()
 
     target_folder_id = args.folder_id
-    all_videos = get_video_ids_in_folder(target_folder_id, verbose=args.verbose)
-    print(f"\nTotal videos found: {len(all_videos)}")
+    
+    creds = None
+    if os.path.exists('token.pickle'):
+        with open('token.pickle', 'rb') as token:
+            creds = pickle.load(token)
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(
+                'credentials.json', SCOPES)
+            creds = flow.run_local_server(port=0)
+        with open('token.pickle', 'wb') as token:
+            pickle.dump(creds, token)
 
-    for video in all_videos:
-        output_dir = video['path']
+    service = build('drive', 'v3', credentials=creds)
+    root_folder_name = get_folder_name(service, target_folder_id)
+
+    if not root_folder_name:
+        print("Could not retrieve the root folder name. Exiting.")
+        exit()
+
+    all_files = get_file_ids_in_folder(target_folder_id, verbose=args.verbose, videos_only=args.videos_only)
+    print(f"\nTotal files found: {len(all_files)}")
+
+    total_counts = {}
+    success_counts = {}
+
+    for file_data in all_files:
+        ext = os.path.splitext(file_data['name'])[1].lower()
+        if not ext:
+            ext = 'no_extension'
+        total_counts[ext] = total_counts.get(ext, 0) + 1
+        if ext not in success_counts:
+            success_counts[ext] = 0
+
+    for file_data in all_files:
+        output_dir = os.path.join(root_folder_name, file_data['path'])
         if output_dir:
             os.makedirs(output_dir, exist_ok=True)
         
-        full_output_path = os.path.join(output_dir, video['name'])
-        print(f"\nStarting download for video: {full_output_path} ({video['id']})")
-        gdrive_videoloader.main(video['id'], output_file=full_output_path, verbose=args.verbose)
+        full_output_path = os.path.join(output_dir, file_data['name'])
+        
+        if os.path.exists(full_output_path):
+            print(f"\nFile {full_output_path} already exists. Skipping download.")
+            ext = os.path.splitext(file_data['name'])[1].lower()
+            if not ext:
+                ext = 'no_extension'
+            success_counts[ext] = success_counts.get(ext, 0) + 1
+            continue
+
+        try:
+            print(f"\nStarting download for file: {full_output_path} ({file_data['id']})")
+            
+            request = service.files().get_media(fileId=file_data['id'], supportsAllDrives=True)
+            
+            file_metadata = service.files().get(fileId=file_data['id'], fields='size', supportsAllDrives=True).execute()
+            file_size = int(file_metadata.get('size', 0))
+
+            fh = io.FileIO(full_output_path, 'wb')
+            
+            downloader = MediaIoBaseDownload(fh, request, chunksize=1024*1024)
+            
+            done = False
+            with tqdm(total=file_size, unit='B', unit_scale=True, desc=file_data['name']) as pbar:
+                while not done:
+                    status, done = downloader.next_chunk()
+                    if status:
+                        pbar.update(status.resumable_progress - pbar.n)
+            
+            print(f"\n{file_data['name']} downloaded successfully.")
+            ext = os.path.splitext(file_data['name'])[1].lower()
+            if not ext:
+                ext = 'no_extension'
+            success_counts[ext] = success_counts.get(ext, 0) + 1
+
+        except Exception as e:
+            print(f"\n{bcolors.FAIL}Download failed for {file_data['name']}: {e}{bcolors.ENDC}")
+            if os.path.exists(full_output_path):
+                print(f"Cleaning up incomplete download: {full_output_path}")
+                os.remove(full_output_path)
+
+    print("\n--- Download Summary ---")
+    for ext, total in total_counts.items():
+        success = success_counts.get(ext, 0)
+        print(f"{ext}: {success} / {total}")
+

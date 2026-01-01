@@ -6,7 +6,7 @@ from google.auth.transport.requests import Request
 import pickle
 import os
 import argparse
-from tqdm import tqdm
+import gdrive_single_video_downloader
 
 # If modifying these scopes, delete the file token.pickle.
 SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
@@ -112,7 +112,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Download files from a Google Drive folder.")
     parser.add_argument("folder_id", type=str, help="The Google Drive folder ID to scan for files.")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable debug logging.")
-    parser.add_argument("--videos-only", action="store_true", help="Download only video files.")
+    parser.add_argument("--videos-only", "--videos_only", dest="videos_only", action="store_true", help="Limit scanning to video files only (default scans videos + PDFs; downloads are always videos only).")
     args = parser.parse_args()
 
     target_folder_id = args.folder_id
@@ -168,30 +168,9 @@ if __name__ == '__main__':
             continue
 
         try:
-            print(f"\nStarting download for file: {full_output_path} ({file_data['id']})")
-            
-            request = service.files().get_media(fileId=file_data['id'], supportsAllDrives=True)
-            
-            file_metadata = service.files().get(fileId=file_data['id'], fields='size', supportsAllDrives=True).execute()
-            file_size = int(file_metadata.get('size', 0))
-
-            fh = io.FileIO(full_output_path, 'wb')
-            
-            downloader = MediaIoBaseDownload(fh, request, chunksize=1024*1024)
-            
-            done = False
-            with tqdm(total=file_size, unit='B', unit_scale=True, desc=file_data['name']) as pbar:
-                while not done:
-                    status, done = downloader.next_chunk()
-                    if status:
-                        pbar.update(status.resumable_progress - pbar.n)
-            
-            print(f"\n{file_data['name']} downloaded successfully.")
-            ext = os.path.splitext(file_data['name'])[1].lower()
-            if not ext:
-                ext = 'no_extension'
-            success_counts[ext] = success_counts.get(ext, 0) + 1
-
+            # Use the single-video downloader that is known to work
+            gdrive_single_video_downloader.main(file_data['id'], output_file=full_output_path, verbose=args.verbose)
+            was_success = True
         except Exception as e:
             print(f"\n{bcolors.FAIL}Download failed for {file_data['name']}: {e}{bcolors.ENDC}")
             if os.path.exists(full_output_path):

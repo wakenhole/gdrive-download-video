@@ -169,3 +169,4 @@ token.pickle
 *.mp4
 .DS_Store
 token.pickle
+*.pdf
